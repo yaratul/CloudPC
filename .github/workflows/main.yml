@@ -38,19 +38,21 @@ jobs:
         }
 
     - name: Start Ngrok Tunnel (RDP)
-      run: .\ngrok\ngrok.exe tcp 3389
-      timeout-minutes: 120  # Timeout after 2 hours if there's no progress
+      run: |
+        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -NoNewWindow
+        Write-Host "Ngrok tunnel started successfully."
+      timeout-minutes: 120
 
     - name: Retry Ngrok on Failure
       if: failure()
       run: |
         Write-Host "Ngrok failed. Retrying..."
         Start-Sleep -s 30  # Wait for 30 seconds before retrying
-        .\ngrok\ngrok.exe tcp 3389
+        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 3389" -NoNewWindow
 
     - name: Log RDP Connection Details
       run: |
-        $ngrokLog = Get-Content -Path ".\ngrok.log" -Raw
+        $ngrokLog = Get-Content -Path ".\ngrok.log" -Tail 50
         Write-Host "Ngrok Tunnel Log: $ngrokLog"
 
     - name: Keep Runner Alive (for 24/7)
