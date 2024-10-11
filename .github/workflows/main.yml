@@ -39,7 +39,7 @@ jobs:
 
     - name: Start Ngrok Tunnel (RDP)
       run: |
-        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 3389 --log ngrok.log" -NoNewWindow
+        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 80 --log ngrok.log" -NoNewWindow
         Write-Host "Ngrok tunnel started successfully."
       timeout-minutes: 120
 
@@ -48,7 +48,7 @@ jobs:
       run: |
         Write-Host "Ngrok failed. Retrying..."
         Start-Sleep -s 30  # Wait for 30 seconds before retrying
-        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 3389 --log ngrok.log" -NoNewWindow
+        Start-Process -FilePath ".\ngrok\ngrok.exe" -ArgumentList "tcp 80 --log ngrok.log" -NoNewWindow
 
     - name: Log RDP Connection Details
       run: |
