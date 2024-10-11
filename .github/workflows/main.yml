@@ -1,6 +1,8 @@
 name: CI
 
-on: [push, workflow_dispatch]
+on: 
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -8,18 +10,51 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Download
-      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-    - name: Extract
-      run: Expand-Archive ngrok.zip
-    - name: Auth
+    - name: Download Ngrok
+      run: |
+        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip
+
+    - name: Authorize Ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-    - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-    - name: Create Tunnel
+
+    - name: Enable Remote Desktop & Firewall Rules
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+
+    - name: Set Admin User Password
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+
+    - name: Check Ngrok Installation
+      run: |
+        if (Test-Path .\ngrok\ngrok.exe) {
+          Write-Host "Ngrok installed successfully."
+        } else {
+          Write-Error "Ngrok not found. Installation may have failed."
+        }
+
+    - name: Start Ngrok Tunnel (RDP)
       run: .\ngrok\ngrok.exe tcp 3389
+      timeout-minutes: 120  # Timeout after 2 hours if there's no progress
+
+    - name: Retry Ngrok on Failure
+      if: failure()
+      run: |
+        Write-Host "Ngrok failed. Retrying..."
+        Start-Sleep -s 30  # Wait for 30 seconds before retrying
+        .\ngrok\ngrok.exe tcp 3389
+
+    - name: Log RDP Connection Details
+      run: |
+        $ngrokLog = Get-Content -Path ".\ngrok.log" -Raw
+        Write-Host "Ngrok Tunnel Log: $ngrokLog"
+
+    - name: Keep Runner Alive (for 24/7)
+      run: |
+        while (1) {
+          Start-Sleep -Seconds 300  # Keep the process alive
+        }
